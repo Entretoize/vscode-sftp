@@ -56,11 +56,16 @@ export interface ExplorerRoot extends ExplorerChild {
 export type ExplorerItem = ExplorerRoot | ExplorerChild;
 
 function dirFirstSort(fileA: ExplorerItem, fileB: ExplorerItem) {
-  if (fileA.isDirectory === fileB.isDirectory) {
-    return fileA.resource.fsPath.localeCompare(fileB.resource.fsPath);
+  // Compare d'abord par type (dossier avant fichier)
+  if (fileA.isDirectory && !fileB.isDirectory) {
+    return -1;
+  }
+  if (!fileA.isDirectory && fileB.isDirectory) {
+    return 1;
   }
 
-  return fileA.isDirectory ? -1 : 1;
+  // Si les deux éléments sont du même type, compare ensuite par nom
+  return upath.basename(fileA.resource.fsPath).localeCompare(upath.basename(fileB.resource.fsPath));
 }
 
 export default class RemoteTreeData
@@ -113,6 +118,7 @@ export default class RemoteTreeData
     if (!customLabel) {
       customLabel = upath.basename(item.resource.fsPath);
     }
+    // Modification ici: toujours utiliser COMMAND_REMOTEEXPLORER_EDITINLOCAL pour les fichiers
     return {
       label: customLabel,
       resourceUri: item.resource.uri,
@@ -121,14 +127,12 @@ export default class RemoteTreeData
       command: item.isDirectory
         ? undefined
         : {
-            command: getExtensionSetting().downloadWhenOpenInRemoteExplorer
-              ? COMMAND_REMOTEEXPLORER_EDITINLOCAL
-              : COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
+            command: COMMAND_REMOTEEXPLORER_EDITINLOCAL, // Toujours éditer localement pour les fichiers
             arguments: [item],
-            title: 'View Remote Resource',
+            title: 'Edit Remote Resource Locally', // Titre mis à jour pour refléter l'action
           },
     };
-  }
+  } 
 
   async getChildren(item?: ExplorerItem): Promise<ExplorerItem[]> {
     if (!item) {
