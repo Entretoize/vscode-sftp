@@ -11,11 +11,9 @@ import {
   ServiceConfig,
 } from '../../core';
 import {
-  COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
   COMMAND_REMOTEEXPLORER_EDITINLOCAL,
 } from '../../constants';
 import { getAllFileService } from '../serviceManager';
-import { getExtensionSetting } from '../ext';
 
 type Id = number;
 
@@ -64,7 +62,17 @@ function dirFirstSort(fileA: ExplorerItem, fileB: ExplorerItem) {
     return 1;
   }
 
-  // Si les deux éléments sont du même type, compare ensuite par nom
+  // Si les deux éléments sont du même type, compare ensuite par extension puis par nom
+  const extA = upath.extname(fileA.resource.fsPath);
+  const extB = upath.extname(fileB.resource.fsPath);
+
+  if (extA < extB) {
+    return -1;
+  }
+  if (extA > extB) {
+    return 1;
+  }
+
   return upath.basename(fileA.resource.fsPath).localeCompare(upath.basename(fileB.resource.fsPath));
 }
 
