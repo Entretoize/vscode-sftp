@@ -60,15 +60,28 @@ export default abstract class RemoteClient {
     }
 
     // Essayer de récupérer le mot de passe chiffré à partir du fichier
-    const decryptedPassword = await this.getDecryptedPassword(connectOption.host, config);
-    if (decryptedPassword) {
-      var ret = this._doConnect({ ...connectOption, password: decryptedPassword }, config);
-      if (ret) {
-        return ret;
-      }
-    }
+    let password: string | undefined;
+    while (true)
+    {
+      //afficher une notification pour dire que le mdp est récupéré
+      //utiliser showInformationMessage
 
-    const password = await config.askForPasswd(`[${connectOption.host}]: Enter your password`);
+      const decryptedPassword = await this.getDecryptedPassword(connectOption.host, config);
+      if (decryptedPassword) {
+        var ret = this._doConnect({ ...connectOption, password: decryptedPassword }, config);
+        if (ret) {
+          return ret;
+        }
+      }
+
+      password = await config.askForPasswd(`[${connectOption.host}]: Enter your password or press Enter to retry master password:`);
+
+      if (password!=undefined && password.length > 0)
+        break;
+      masterPassword='';
+    }
+  
+
 
     //save the typed password
     if (password !== undefined) {
@@ -90,10 +103,18 @@ export default abstract class RemoteClient {
       return '';
     }
     const encryptedPassword = await fs.readFile(passwordsFile, 'utf8');
-    return this.decryptPassword(encryptedPassword, masterPasswordInput);
+    var pass= this.decryptPassword(encryptedPassword, masterPasswordInput);
+    if(pass.startsWith("pass_")){
+      return pass.substring(5);
+    }
+    else{
+      return '';
+    }
   }
 
   public async saveEncryptedPassword(host: string, password: string, config: Config): Promise<void> {
+    //ajout de "pass_" au début du password pour pouvoir vérifier que le mdp est bien déchiffré plus tard
+    password = "pass_" + password;
     const masterPasswordInput = await this.getMasterPassword(config);
     const encryptedPassword = this.encryptPassword(password, masterPasswordInput);
 
@@ -111,10 +132,18 @@ export default abstract class RemoteClient {
   }
 
   private decryptPassword(encryptedPassword: string, masterPassword: string): string {
-    const decipher = crypto.createDecipher('aes-256-cbc', masterPassword);
-    let decryptedPassword = decipher.update(encryptedPassword, 'hex', 'utf8');
-    decryptedPassword += decipher.final('utf8');
-    return decryptedPassword;
+
+    try
+    {
+      const decipher = crypto.createDecipher('aes-256-cbc', masterPassword);
+      let decryptedPassword = decipher.update(encryptedPassword, 'hex', 'utf8');
+      decryptedPassword += decipher.final('utf8');
+      return decryptedPassword;
+    }
+    catch (err)
+    {
+      return '';
+    }
   }
 
   private async getMasterPassword(config: Config): Promise<string> {
